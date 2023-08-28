@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,64 @@ typedef struct layerDense {
     u32 n_inputs, n_neurons;
     neuron* neurons;
 } layerDense;
+
+
+f32 random_f() {
+    f32 r = (f32)rand() - ((f32)RAND_MAX / 2);
+    r /= ((f32)RAND_MAX / 2);
+
+    return r;
+}
+
+void linspace(f32 start, f32 stop, u32 samples, f32 output[]) {
+    f32 space = (stop - start) / (samples - 1);
+    for (usize i = 0; i < samples; i++) {
+        output[i] = start + space * i;
+    }
+}
+
+/*
+ * Adapted from: https://github.com/Sentdex/nnfs/blob/master/nnfs/datasets/spiral.py 
+ */
+void spiral_data(u32 samples, u32 classes, f32 outputData[][2], u8 outputClasses[]) {
+    for (usize class_index = 0; class_index < classes; class_index++) {
+        f32 r[samples]; // radius
+        f32 t[samples]; // theta
+        linspace(0, 1, samples, r);
+        linspace(class_index*4, (class_index+1)*4, samples, t);
+
+        for (usize sample_index = 0; sample_index < samples; sample_index++) {
+            r[sample_index] += random_f() * 0.2;
+
+            outputData[sample_index + (class_index * samples)][0] = 
+                r[sample_index]*sinf(t[sample_index]*2.5);
+
+            outputData[sample_index + (class_index * samples)][1] = 
+                r[sample_index]*cosf(t[sample_index]*2.5);
+
+            outputClasses[sample_index + (class_index * samples)] = class_index;
+        }
+    }
+}
+
+
+/*
+ * Adapted from: https://github.com/Sentdex/nnfs/blob/master/nnfs/datasets/vertical.py 
+ */
+void vertical_data(u32 samples, u32 classes, f32 outputData[][2], u8 outputClasses[]) {
+    for (usize class_index = 0; class_index < classes; class_index++) {
+
+        for (usize sample_index = 0; sample_index < samples; sample_index++) {
+            outputData[sample_index + (class_index * samples)][0] = 
+                random_f()*0.1 + ((f32)class_index)/3;
+
+            outputData[sample_index + (class_index * samples)][1] = 
+                random_f()*0.1 + 0.5;
+
+            outputClasses[sample_index + (class_index * samples)] = class_index;
+        }
+    }
+}
 
 /* 
  * @brief takes two equally sized arrays and returns the dot product
@@ -62,6 +119,27 @@ f32 max_element(f32 input[], usize size) {
     return max;
 }
 
+f32 clip(f32 value, f32 min, f32 max) {
+    if (value < min) {
+        return min;
+    }
+
+    if (value > max) {
+        return max;
+    }
+
+    return value;
+}
+
+f32 mean(f32 values[], usize size) {
+    f32 accumulator = 0;
+    for (usize i = 0; i < size; i++) {
+        accumulator += values[i];
+    }
+
+    return accumulator / size;
+}
+
 void softmax(f32 input[], usize size) {
     // first we calculate the exponential value
     // and the sum of all exponentiated values
@@ -80,7 +158,6 @@ void softmax(f32 input[], usize size) {
 }
 
 void layerDense_init(layerDense* layer, u32 n_inputs, u32 n_neurons) {
-    srand(time(0));
 
     layer->n_inputs = n_inputs;
     layer->n_neurons = n_neurons;
@@ -90,9 +167,7 @@ void layerDense_init(layerDense* layer, u32 n_inputs, u32 n_neurons) {
         layer->neurons[i].weights = malloc(sizeof(f32) * n_inputs);
 
         for (usize j = 0; j < n_inputs; j++) {
-            f32 weight = (f32)rand() - ((f32)RAND_MAX / 2);
-            weight /= ((f32)RAND_MAX / 2);
-            weight *= 0.01;
+            f32 weight = 0.01 * random_f();
             layer->neurons[i].weights[j] = weight;
         }
     }
@@ -104,8 +179,6 @@ void layerDense_forward(layerDense* layer, f32 inputs[], f32 output[]) {
             vector_dot(inputs, layer->neurons[i].weights, layer->n_inputs) +
             layer->neurons[i].bias;
     }
-
-    relu(output, layer->n_neurons);
 }
 
 void layerDense_destroy(layerDense* layer) {
@@ -124,33 +197,40 @@ void layerDense_print(layerDense* l) {
     }
 }
 
+f32 loss_CategoricalCrossentropy(f32 prediction[], usize correctIndex) {
+    f32 pred = clip(prediction[correctIndex], 1e-7, 1 - 1e-7);
+    f32 loss = -logf(pred);
+    return loss;
+}
+
+
 int main(int argc, char* argv[])
 {
-    layerDense l;
-    layerDense_init(&l, 2, 4);
-    layerDense_print(&l);
+    srand(time(0));
 
-    f32 output[l.n_neurons];
-    f32 input[] = {2, 2};
-    layerDense_forward(&l, input, output);
+    f32 outputData[300][2];
+    u8 outputClasses[300];
+    spiral_data(100, 3, outputData, outputClasses);
 
-    for (usize i = 0; i < l.n_neurons; i++) {
-        printf("%f\n", output[i]);
+    layerDense dense1;
+    layerDense_init(&dense1, 2, 3);
+
+    layerDense dense2;
+    layerDense_init(&dense2, 3, 3);
+
+    f32 losses[300];
+    for (usize i = 0; i < 300; i++) {
+        f32 output[3];
+        layerDense_forward(&dense1, outputData[i], output);
+        relu(output, 3);
+        layerDense_forward(&dense2, output, output);
+        softmax(output, 3);
+
+        losses[i] = loss_CategoricalCrossentropy(output, outputClasses[i]);
     }
 
-    layerDense_destroy(&l);
-
-
-    f32 softmax_inputs[] = {4.8, 1.21, 2.385};
-    softmax(softmax_inputs, 3);
-
-    f32 sum = 0;
-    for (usize i = 0; i < 3; i++) {
-        sum += softmax_inputs[i];
-        printf("%f -", softmax_inputs[i]);
-    }
-
-    printf("%f", sum);
+    
+    printf("%f", mean(losses, 300));
     return 0;
 }
 
