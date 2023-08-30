@@ -1,13 +1,13 @@
 UNAME_S = $(shell uname -s)
 
-CC = clang
-CFLAGS = -Wall -Wextra -Wpedantic -Wstrict-aliasing
+CC = clang++
+CFLAGS =  -std=c++20 -ggdb -Wall -Wextra -Wpedantic -Wstrict-aliasing
 CFLAGS += -Wno-pointer-arith -Wno-newline-eof -Wno-unused-parameter -Wno-gnu-statement-expression
 CFLAGS += -Wno-gnu-compound-literal-initializer -Wno-gnu-zero-variadic-macro-arguments
 LDFLAGS = -lm
 
-SRC  = $(wildcard src/**/*.c) $(wildcard src/*.c) $(wildcard src/**/**/*.c) $(wildcard src/**/**/**/*.c)
-OBJ  = $(SRC:.c=.o)
+SRC  = $(wildcard src/**/*.cpp) $(wildcard src/*.cpp) $(wildcard src/**/**/*.cpp) $(wildcard src/**/**/**/*.cpp)
+OBJ  = $(SRC:.cpp=.o)
 BIN = bin
 
 .PHONY: all clean
@@ -23,7 +23,7 @@ run: all
 app: $(OBJ)
 	$(CC) -o $(BIN)/app $^ $(LDFLAGS)
 
-%.o: %.c
+%.o: %.cpp
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 clean:
