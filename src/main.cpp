@@ -36,9 +36,9 @@ class neuron {
 
         neuron(u32 n_weights) {
             for (usize i = 0; i < n_weights; i++) {
-                weights.push_back(0.01 * random_f());
+                weights.push_back(0.05 * random_f());
             }
-            bias = 0;
+            bias = 0.05 * random_f();
         }
 };
 
@@ -47,6 +47,8 @@ class layerDense {
         u32 n_inputs;
         u32 n_neurons;
         vector<neuron> neurons;
+
+        layerDense() {}
 
         layerDense(u32 n_inputs, u32 n_neurons) {
             this->n_inputs = n_inputs;
@@ -110,7 +112,6 @@ vector<tData> vertical_data(u32 samples, u32 classes) {
     vector<tData> output(samples * classes);
     for (usize class_index = 0; class_index < classes; class_index++) {
         for (usize sample_index = 0; sample_index < samples; sample_index++) {
-
             usize index = sample_index + (class_index * samples);
             output[index].posX = random_f()*0.1 + ((f32)class_index)/3;
             output[index].posY = random_f()*0.1 + 0.5;
@@ -198,12 +199,11 @@ usize max_index(vector<f32> const &vector) {
 }
 
 
-int main(int argc, char* argv[])
-{
-    srand(time(0));
+layerDense best_dense1;
+layerDense best_dense2;
+f32 lowest_loss = 10000;
 
-    auto data = vertical_data(100, 3);
-
+void run_batch(vector<tData> data) {
     layerDense dense1(2, 3);
     layerDense dense2(3, 3);
 
@@ -225,9 +225,24 @@ int main(int argc, char* argv[])
         }
     }
 
-    
-    cout << "loss: " << mean(losses) << endl;
-    cout << "acc: " << mean(correctness) << endl;
+    f32 loss_mean = mean(losses);
+    if (loss_mean < lowest_loss) {
+        lowest_loss = loss_mean;
+        best_dense1 = dense1;
+        best_dense2 = dense2;
+        cout << "loss: " << loss_mean << " acc: " << mean(correctness) << endl;
+    } 
+}
+
+int main(int argc, char* argv[])
+{
+    srand(time(0));
+
+    auto data = vertical_data(100, 3);
+
+    for (usize i = 0; i < 100000; i++) {
+        run_batch(data);
+    }
 
     return 0;
 }
