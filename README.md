@@ -4,7 +4,6 @@ This project implements a simple feedforward neural network in C++ with basic fu
 
 ## Requirements
 - C++ compiler (GCC, Clang, MSVC, etc.)
-- C++ standard library
 
 ## Usage
 Clone the repository and compile the program:
